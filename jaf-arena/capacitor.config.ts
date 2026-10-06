@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.jaf.arena',
-  appName: 'JAF Arena',
+  appName: 'Bagram JAF',
   webDir: 'dist',
 };
 

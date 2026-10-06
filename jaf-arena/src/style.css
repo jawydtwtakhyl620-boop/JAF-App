@@ -75,5 +75,9 @@ body.touch #bottom-bar { transform: translateX(-50%) scale(.8); transform-origin
 .screen .sub { font-size: 17px; opacity: .85; }
 .screen .hint { font-size: 13px; opacity: .6; max-width: 520px; line-height: 1.8; }
 button.big { font: inherit; font-size: 20px; padding: 12px 42px; border: none; border-radius: 8px; background: #f0c040; color: #000; cursor: pointer; }
+#menu { justify-content: flex-end; padding-bottom: max(24px, env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent 55%, rgba(10, 12, 16, .85)), url('/cover.jpg') center / cover no-repeat, #1b2430; }
+#menu .hint { opacity: .85; text-shadow: 0 1px 3px #000; }
+.menu-bottom { display: flex; flex-direction: column; align-items: center; gap: 10px; }
 #rotate { display: none; z-index: 10; font-size: 20px; }
 @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
