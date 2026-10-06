@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>فروشگاه JAF</title>
+  <meta name="description" content="فروشگاه آنلاین JAF">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a href="#" class="logo">JAF<span>Shop</span></a>
+      <button class="cart-btn" id="cartOpen" aria-label="سبد خرید">
+        🛒 <span class="cart-btn__count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>به فروشگاه JAF خوش آمدید</h1>
+      <p>بهترین محصولات با بهترین قیمت، ارسال سریع به سراسر کشور</p>
+    </div>
+  </section>
+
+  <main class="container">
+    <div class="filters">
+      <input type="search" id="search" placeholder="جستجوی محصول…" aria-label="جستجو">
+      <div class="chips" id="categories"></div>
+    </div>
+    <div class="grid" id="products"></div>
+    <p class="empty" id="noResults" hidden>محصولی پیدا نشد.</p>
+  </main>
+
+  <!-- سبد خرید -->
+  <div class="overlay" id="overlay" hidden></div>
+  <aside class="drawer" id="cart" aria-hidden="true">
+    <div class="drawer__head">
+      <h2>سبد خرید</h2>
+      <button class="icon-btn" id="cartClose" aria-label="بستن">✕</button>
+    </div>
+    <ul class="cart-list" id="cartItems"></ul>
+    <p class="empty" id="cartEmpty">سبد خرید خالی است.</p>
+    <div class="drawer__foot">
+      <div class="total">جمع کل: <strong id="cartTotal">۰</strong> تومان</div>
+      <button class="btn btn--primary" id="checkoutBtn" disabled>ادامه‌ی خرید</button>
+    </div>
+  </aside>
+
+  <!-- فرم سفارش -->
+  <dialog id="checkout">
+    <form method="dialog" id="checkoutForm" class="form">
+      <h2>ثبت سفارش</h2>
+      <label>نام و نام خانوادگی<input name="name" required></label>
+      <label>شماره تلفن<input name="phone" type="tel" required pattern="[0-9۰-۹+ ]{8,15}"></label>
+      <label>آدرس<textarea name="address" rows="3" required></textarea></label>
+      <div class="form__actions">
+        <button type="button" class="btn" id="checkoutCancel">انصراف</button>
+        <button type="submit" class="btn btn--primary">ثبت سفارش</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <footer class="footer">
+    <div class="container">© فروشگاه JAF</div>
+  </footer>
+
+  <script src="js/products.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
