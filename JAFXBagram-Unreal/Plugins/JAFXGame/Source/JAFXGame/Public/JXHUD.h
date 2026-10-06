@@ -23,6 +23,8 @@ private:
 	void DrawWeaponPanel(const AJXCharacter* C);
 	void DrawMinimap(const AJXCharacter* C);
 	void DrawTopInfo(const AJXCharacter* C);
+	/** Heading strip at the top of the screen (195 | 210 | [226 SW] | 240 ...). Returns its bottom Y. */
+	float DrawCompass(float HeadingDegrees);
 	void DrawKillFeed(const AJXPlayerController* PC);
 	void DrawCenterMessage(const AJXPlayerController* PC);
 	void DrawTouchLabels(const AJXPlayerController* PC);

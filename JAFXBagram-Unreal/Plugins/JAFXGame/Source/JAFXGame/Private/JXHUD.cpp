@@ -270,21 +270,93 @@ void AJXHUD::DrawMinimap(const AJXCharacter* C)
 	DrawRect(Gold, Me.X - 4.f * S, Me.Y - 4.f * S, 8.f * S, 8.f * S);
 }
 
+namespace
+{
+	const TCHAR* DirectionName(int32 Deg)
+	{
+		static const TCHAR* Names[] = { TEXT("N"), TEXT("NE"), TEXT("E"), TEXT("SE"), TEXT("S"), TEXT("SW"), TEXT("W"), TEXT("NW") };
+		return Names[((Deg + 22) / 45) % 8];
+	}
+}
+
+float AJXHUD::DrawCompass(float Heading)
+{
+	UFont* Small = GEngine->GetSmallFont();
+	const float CX = Canvas->ClipX * 0.5f;
+	const float Top = 18.f * S;
+	const float HalfW = 330.f * S;
+	const float Range = 75.f; // degrees visible on each side
+	const FLinearColor Tick(1.f, 1.f, 1.f, 0.75f);
+
+	// Ticks every 5 degrees, labels every 15 degrees (cardinal letters on 0/90/180/270).
+	const int32 First = FMath::FloorToInt((Heading - Range) / 5.f) * 5;
+	for (int32 D = First; D <= Heading + Range; D += 5)
+	{
+		const float Offset = (D - Heading) / Range;
+		if (FMath::Abs(Offset) > 1.f) continue;
+		const float X = CX + Offset * HalfW;
+		const float Fade = 1.f - FMath::Abs(Offset) * 0.6f;
+		const int32 Norm = ((D % 360) + 360) % 360;
+		if (Norm % 15 == 0)
+		{
+			const bool bCardinal = Norm % 90 == 0;
+			const FString Label = bCardinal ? FString(DirectionName(Norm)) : FString::FromInt(Norm);
+			DrawTextCentered(Label, X, Top, FLinearColor(1.f, 1.f, 1.f, Fade), Small, (bCardinal ? 1.3f : 1.1f) * S);
+		}
+		else
+		{
+			DrawLine(X, Top + 6.f * S, X, Top + 16.f * S, FLinearColor(Tick.R, Tick.G, Tick.B, Tick.A * Fade), FMath::Max(1.f, 1.5f * S));
+		}
+	}
+
+	// Current heading in a box in the middle, e.g. "226SW".
+	const int32 H = ((FMath::RoundToInt(Heading) % 360) + 360) % 360;
+	const FString Now = FString::Printf(TEXT("%d%s"), H, DirectionName(H));
+	float TW = 0.f, TH = 0.f;
+	GetTextSize(Now, TW, TH, Small, 1.25f * S);
+	const float BoxW = TW + 22.f * S, BoxH = TH + 10.f * S;
+	const float BX = CX - BoxW * 0.5f, BY = Top - 5.f * S;
+	DrawRect(FLinearColor(0.02f, 0.05f, 0.09f, 0.85f), BX, BY, BoxW, BoxH);
+	const float T = FMath::Max(1.f, 1.5f * S);
+	DrawLine(BX, BY, BX + BoxW, BY, White, T);
+	DrawLine(BX, BY + BoxH, BX + BoxW, BY + BoxH, White, T);
+	DrawLine(BX, BY, BX, BY + BoxH, White, T);
+	DrawLine(BX + BoxW, BY, BX + BoxW, BY + BoxH, White, T);
+	DrawText(Now, White, CX - TW * 0.5f, BY + 5.f * S, Small, 1.25f * S);
+	return BY + BoxH;
+}
+
 void AJXHUD::DrawTopInfo(const AJXCharacter* C)
 {
 	const AJXGameMode* GM = GetWorld()->GetAuthGameMode<AJXGameMode>();
 	UFont* Med = GEngine->GetMediumFont();
+	UFont* Small = GEngine->GetSmallFont();
+
+	float Heading = 0.f;
+	if (const APlayerController* PC = GetOwningPlayerController())
+	{
+		if (PC->PlayerCameraManager) Heading = PC->PlayerCameraManager->GetCameraRotation().Yaw;
+	}
+	// Unreal yaw 0 = +X = north on our map, 90 = east.
+	Heading = FMath::Fmod(Heading + 360.f, 360.f);
+	const float CompassBottom = DrawCompass(Heading);
+
+	if (!GM) return;
 	const float X = MapOrigin.X;
 	const float Y = MapOrigin.Y + MapSize + 8.f * S;
-	if (GM)
+	DrawText(FString::Printf(TEXT("ALIVE %d    KILLS %d"), GM->GetAliveCount(), C->Kills), White, X, Y, Med, 1.f * S);
+
+	// Zone status in a small label under the compass (like "CONTROL ZONE").
+	if (const AJXSafeZone* Zone = GM->GetSafeZone())
 	{
-		DrawText(FString::Printf(TEXT("ALIVE %d    KILLS %d"), GM->GetAliveCount(), C->Kills), White, X, Y, Med, 1.f * S);
-		if (const AJXSafeZone* Zone = GM->GetSafeZone())
-		{
-			const bool bOutside = !Zone->IsInside(C->GetVehicle() ? C->GetVehicle()->GetActorLocation() : C->GetActorLocation());
-			DrawTextCentered(Zone->GetStatusText() + (bOutside ? TEXT("   -  YOU ARE OUTSIDE THE ZONE") : TEXT("")),
-				Canvas->ClipX * 0.5f, 20.f * S, bOutside ? Red : White, Med, 1.1f * S);
-		}
+		const bool bOutside = !Zone->IsInside(C->GetVehicle() ? C->GetVehicle()->GetActorLocation() : C->GetActorLocation());
+		const FString Label = (bOutside ? FString(TEXT("OUTSIDE SAFE ZONE  -  ")) : FString()) + Zone->GetStatusText().ToUpper();
+		float TW = 0.f, TH = 0.f;
+		GetTextSize(Label, TW, TH, Small, 1.1f * S);
+		const float LY = CompassBottom + 14.f * S;
+		DrawRect(bOutside ? FLinearColor(0.45f, 0.05f, 0.03f, 0.8f) : FLinearColor(0.05f, 0.1f, 0.18f, 0.8f),
+			Canvas->ClipX * 0.5f - TW * 0.5f - 12.f * S, LY - 4.f * S, TW + 24.f * S, TH + 8.f * S);
+		DrawText(Label, White, Canvas->ClipX * 0.5f - TW * 0.5f, LY, Small, 1.1f * S);
 	}
 }
 

@@ -4,7 +4,14 @@
 #include "JXSettings.h"
 #include "JXTank.h"
 #include "JXWeaponLibrary.h"
+#include "Components/DirectionalLightComponent.h"
+#include "Components/ExponentialHeightFogComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Components/SkyAtmosphereComponent.h"
+#include "Components/SkyLightComponent.h"
+#include "Components/VolumetricCloudComponent.h"
+#include "Engine/DirectionalLight.h"
+#include "EngineUtils.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
@@ -54,10 +61,64 @@ AJXBagramMap::AJXBagramMap()
 	Leaves = MakeISM(TEXT("Leaves"), Sphere, false);
 	Rock = MakeISM(TEXT("Mountains"), Cone, true);
 	Snow = MakeISM(TEXT("Snow"), Cone, false);
+	WaterTanks = MakeISM(TEXT("WaterTanks"), Cyl, true);
 	Invisible = MakeISM(TEXT("Boundary"), Cube, true);
 	Invisible->SetHiddenInGame(true);
 	Invisible->SetCastShadow(false);
 	Markings->SetCastShadow(false);
+
+	// Realistic sky: physical sun + atmosphere + real-time sky light + volumetric clouds + height fog.
+	Sun = CreateDefaultSubobject<UDirectionalLightComponent>(TEXT("Sun"));
+	Sun->SetupAttachment(Root);
+	Sun->SetMobility(EComponentMobility::Movable);
+	Sun->SetIntensity(9.f); // lux, bright afternoon
+	Sun->SetLightColor(FLinearColor(1.f, 0.94f, 0.84f));
+	Sun->SetAtmosphereSunLight(true);
+	Sun->SetCastShadows(true);
+
+	Atmosphere = CreateDefaultSubobject<USkyAtmosphereComponent>(TEXT("Atmosphere"));
+	Atmosphere->SetupAttachment(Root);
+
+	SkyLight = CreateDefaultSubobject<USkyLightComponent>(TEXT("SkyLight"));
+	SkyLight->SetupAttachment(Root);
+	SkyLight->SetMobility(EComponentMobility::Movable);
+	SkyLight->bRealTimeCapture = true;
+	SkyLight->SetIntensity(1.f);
+
+	Clouds = CreateDefaultSubobject<UVolumetricCloudComponent>(TEXT("Clouds"));
+	Clouds->SetupAttachment(Root);
+
+	Fog = CreateDefaultSubobject<UExponentialHeightFogComponent>(TEXT("Fog"));
+	Fog->SetupAttachment(Root);
+	Fog->SetFogDensity(0.004f);
+	Fog->SetFogHeightFalloff(0.08f);
+	Fog->SetVolumetricFog(true);
+}
+
+void AJXBagramMap::UpdateSky()
+{
+	// Turn our sky off if the level already has its own sun (e.g. the "Basic" level template).
+	bool bLevelHasSun = false;
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<ADirectionalLight> It(World); It; ++It)
+		{
+			bLevelHasSun = true;
+			break;
+		}
+	}
+	const bool bOn = bAddSkyAndLighting && !bLevelHasSun;
+	for (USceneComponent* C : { static_cast<USceneComponent*>(Sun.Get()), static_cast<USceneComponent*>(Atmosphere.Get()),
+		static_cast<USceneComponent*>(SkyLight.Get()), static_cast<USceneComponent*>(Clouds.Get()), static_cast<USceneComponent*>(Fog.Get()) })
+	{
+		if (C) C->SetVisibility(bOn);
+	}
+	if (Sun)
+	{
+		Sun->SetAffectDynamicIndirectLighting(bOn);
+		// Pitch is negative so the light points down. Heading uses the same convention as the HUD compass.
+		Sun->SetWorldRotation(FRotator(-SunElevation, SunHeading + 180.f, 0.f));
+	}
 }
 
 UInstancedStaticMeshComponent* AJXBagramMap::MakeISM(const TCHAR* Name, UStaticMesh* Mesh, bool bCollision)
@@ -81,6 +142,7 @@ void AJXBagramMap::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
 	Rebuild();
+	UpdateSky();
 }
 
 void AJXBagramMap::ApplyColors()
@@ -102,6 +164,7 @@ void AJXBagramMap::ApplyColors()
 		{ Leaves, FLinearColor(0.16f, 0.30f, 0.10f) },
 		{ Rock, FLinearColor(0.36f, 0.31f, 0.26f) },
 		{ Snow, FLinearColor(0.95f, 0.95f, 1.0f) },
+		{ WaterTanks, FLinearColor(0.32f, 0.45f, 0.6f) },
 	};
 	for (const FEntry& E : Entries)
 	{
@@ -117,7 +180,7 @@ void AJXBagramMap::ApplyColors()
 void AJXBagramMap::ClearAll()
 {
 	for (UInstancedStaticMeshComponent* ISM : { Ground.Get(), Concrete.Get(), Markings.Get(), Walls.Get(), MudWalls.Get(), Metal.Get(),
-		Roofs.Get(), Hesco.Get(), Crates.Get(), Glass.Get(), Tanks.Get(), Trunks.Get(), Leaves.Get(), Rock.Get(), Snow.Get(), Invisible.Get() })
+		Roofs.Get(), Hesco.Get(), Crates.Get(), Glass.Get(), Tanks.Get(), Trunks.Get(), Leaves.Get(), Rock.Get(), Snow.Get(), Invisible.Get(), WaterTanks.Get() })
 	{
 		if (ISM) ISM->ClearInstances();
 	}
@@ -314,6 +377,38 @@ void AJXBagramMap::Tree(float X, float Y, float Scale)
 	Box(Leaves, X, Y, 2.4f * Scale, 3.2f * Scale, 3.2f * Scale, 3.f * Scale);
 }
 
+void AJXBagramMap::WaterTower(float X, float Y)
+{
+	// Big blue water tank on short legs, like the ones on many military bases.
+	for (int32 i = 0; i < 8; ++i)
+	{
+		const float A = i / 8.f * 2.f * PI;
+		Box(Metal, X + FMath::Cos(A) * 7.f, Y + FMath::Sin(A) * 7.f, 0.f, 0.35f, 0.35f, 1.6f);
+	}
+	Box(Concrete, X, Y, 0.f, 17.f, 17.f, 0.3f);
+	Box(WaterTanks, X, Y, 1.6f, 15.f, 15.f, 8.5f);
+	Box(Roofs, X, Y, 10.1f, 15.4f, 15.4f, 0.25f);
+	// Ladder up the side.
+	Box(Metal, X + 7.6f, Y, 0.f, 0.15f, 0.8f, 10.f);
+}
+
+void AJXBagramMap::PanelFence(float X0, float Y0, float X1, float Y1)
+{
+	// Precast concrete panels between posts (2.5 m tall), like the fence in the reference picture.
+	const float Len = FMath::Sqrt(FMath::Square(X1 - X0) + FMath::Square(Y1 - Y0));
+	const float Panel = 3.f;
+	const int32 N = FMath::Max(1, FMath::RoundToInt(Len / Panel));
+	const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(Y1 - Y0, X1 - X0));
+	for (int32 i = 0; i < N; ++i)
+	{
+		const float A = (i + 0.5f) / N;
+		Box(Walls, FMath::Lerp(X0, X1, A), FMath::Lerp(Y0, Y1, A), 0.f, Len / N - 0.25f, 0.18f, 2.4f, Yaw);
+		const float P = static_cast<float>(i) / N;
+		Box(Concrete, FMath::Lerp(X0, X1, P), FMath::Lerp(Y0, Y1, P), 0.f, 0.35f, 0.35f, 2.6f, Yaw);
+	}
+	Box(Concrete, X1, Y1, 0.f, 0.35f, 0.35f, 2.6f, Yaw);
+}
+
 void AJXBagramMap::Mountains()
 {
 	// Hindu Kush backdrop: a ring of snowy peaks outside the playable area.
@@ -345,7 +440,7 @@ void AJXBagramMap::Rebuild()
 	Rng.Initialize(Seed);
 
 	// Desert floor (2.8 km square, top surface at Z = 0).
-	Box(Ground, 0.f, 0.f, -1.f, 2800.f, 2800.f, 1.f);
+	if (bBuildGround) Box(Ground, 0.f, 0.f, -1.f, 2800.f, 2800.f, 1.f);
 
 	// Runway with markings, taxiway, connectors and apron.
 	Box(Concrete, 0.f, 0.f, 0.f, 960.f, 45.f, 0.1f);
@@ -394,6 +489,16 @@ void AJXBagramMap::Rebuild()
 	HescoLine(480.f, 160.f, 545.f, 160.f);
 	HescoLine(480.f, 85.f, 480.f, 115.f);
 	LootPoints.Add(FVector(511.f * M, 122.f * M, 0.2f * M));
+
+	// Water towers behind concrete panel fences (north-east and south-west of the base).
+	WaterTower(470.f, 245.f);
+	PanelFence(452.f, 225.f, 500.f, 225.f);
+	PanelFence(452.f, 225.f, 452.f, 262.f);
+	WaterTower(-500.f, -110.f);
+	PanelFence(-520.f, -90.f, -470.f, -90.f);
+	PanelFence(-470.f, -90.f, -470.f, -128.f);
+	LootPoints.Add(FVector(462.f * M, 232.f * M, 0.f));
+	LootPoints.Add(FVector(-478.f * M, -98.f * M, 0.f));
 
 	// Open field between runway and barracks: cover, a DShK nest and the tanks.
 	for (int32 i = 0; i < 22; ++i)
@@ -461,7 +566,7 @@ void AJXBagramMap::Rebuild()
 		if (bClear) Tree(X, Y, Rng.FRandRange(0.8f, 1.4f));
 	}
 
-	Mountains();
+	if (bBuildMountains) Mountains();
 	Boundary();
 	ApplyColors();
 }
@@ -469,13 +574,35 @@ void AJXBagramMap::Rebuild()
 void AJXBagramMap::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!Ground || Ground->GetInstanceCount() == 0)
+	if (!Concrete || Concrete->GetInstanceCount() == 0)
 	{
 		Rebuild();
 	}
 	ApplyColors();
+	UpdateSky();
 
 	UWorld* World = GetWorld();
+	if (World && World->IsGameWorld())
+	{
+		const bool bLevelHasOwnSky = Sun && !Sun->IsVisible();
+		if (bLevelHasOwnSky)
+		{
+			// The level brings its own sky: remove ours so there are never two atmospheres.
+			for (USceneComponent* C : { static_cast<USceneComponent*>(Sun.Get()), static_cast<USceneComponent*>(Atmosphere.Get()),
+				static_cast<USceneComponent*>(SkyLight.Get()), static_cast<USceneComponent*>(Clouds.Get()), static_cast<USceneComponent*>(Fog.Get()) })
+			{
+				if (C) C->DestroyComponent();
+			}
+		}
+#if PLATFORM_ANDROID || PLATFORM_IOS
+		// Volumetric clouds and fog are too expensive for most phones.
+		else
+		{
+			if (Clouds) Clouds->DestroyComponent();
+			if (Fog) Fog->SetVolumetricFog(false);
+		}
+#endif
+	}
 	if (!World || !World->IsGameWorld() || !HasAuthority()) return;
 
 	if (bSpawnLoot)
