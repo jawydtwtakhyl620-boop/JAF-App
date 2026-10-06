@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fa">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1b2430" />
+  <title>JAF Arena</title>
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="crosshair"><span></span><span></span><span></span><span></span></div>
+    <div id="hitmarker">✕</div>
+    <div id="damage-flash"></div>
+
+    <div id="top-bar">
+      <div class="pill">زنده: <b id="alive">0</b></div>
+      <div class="pill">کشته‌ها: <b id="kills">0</b></div>
+    </div>
+    <div id="killfeed"></div>
+
+    <div id="bottom-bar">
+      <div id="health"><div id="health-fill"></div><span id="health-text">100</span></div>
+      <div id="weapon-box">
+        <div id="weapon-name">بدون سلاح</div>
+        <div id="ammo"><b id="ammo-mag">-</b> / <span id="ammo-reserve">-</span></div>
+        <div id="slots"><span id="slot0">1</span><span id="slot1">2</span></div>
+      </div>
+      <div id="items">🩹 <b id="bandages">0</b> &nbsp; 💊 <b id="medkits">0</b></div>
+    </div>
+
+    <div id="prompt" class="hidden"></div>
+    <div id="progress" class="hidden"><div id="progress-fill"></div><span id="progress-text"></span></div>
+    <div id="desktop-help">WASD حرکت · Shift دویدن · Space پرش · کلیک چپ شلیک · کلیک راست نشانه · R خشاب · F برداشتن · 1/2 سلاح · 4 باند · 5 جعبه کمک</div>
+  </div>
+
+  <div id="touch-ui" class="hidden">
+    <div id="joy-zone"><div id="joy-base"><div id="joy-knob"></div></div></div>
+    <div id="look-zone"></div>
+    <button class="tbtn" id="btn-fire">🔥</button>
+    <button class="tbtn" id="btn-fire-left">🔥</button>
+    <button class="tbtn" id="btn-aim">🎯</button>
+    <button class="tbtn" id="btn-jump">⤒</button>
+    <button class="tbtn" id="btn-reload">R</button>
+    <button class="tbtn" id="btn-switch">⇄</button>
+    <button class="tbtn" id="btn-pickup">✋</button>
+    <button class="tbtn" id="btn-bandage">🩹</button>
+    <button class="tbtn" id="btn-medkit">💊</button>
+  </div>
+
+  <div id="menu" class="screen">
+    <h1>JAF Arena</h1>
+    <p class="sub">آخرین نفری باش که زنده می‌ماند</p>
+    <button id="btn-start" class="big">شروع بازی</button>
+    <p class="hint" id="menu-hint"></p>
+  </div>
+
+  <div id="end" class="screen hidden">
+    <h1 id="end-title"></h1>
+    <p class="sub" id="end-stats"></p>
+    <button id="btn-restart" class="big">بازی دوباره</button>
+  </div>
+
+  <div id="rotate" class="screen">
+    <p>📱↻ لطفاً گوشی را افقی بگیرید</p>
+  </div>
+
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

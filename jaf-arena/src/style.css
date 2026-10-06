@@ -1,0 +1,79 @@
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #1b2430; color: #fff;
+  font-family: Tahoma, "Segoe UI", system-ui, sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+.hidden { display: none !important; }
+
+/* ---------- HUD ---------- */
+#hud { position: fixed; inset: 0; pointer-events: none; }
+#crosshair { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+#crosshair span { position: absolute; background: #fff; box-shadow: 0 0 2px #000; }
+#crosshair span:nth-child(1) { width: 2px; height: 8px; left: -1px; top: -14px; }
+#crosshair span:nth-child(2) { width: 2px; height: 8px; left: -1px; top: 6px; }
+#crosshair span:nth-child(3) { width: 8px; height: 2px; left: -14px; top: -1px; }
+#crosshair span:nth-child(4) { width: 8px; height: 2px; left: 6px; top: -1px; }
+#hitmarker { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-size: 26px;
+  color: #fff; opacity: 0; text-shadow: 0 0 3px #000; transition: opacity .15s; }
+#hitmarker.show { opacity: 1; transition: none; }
+#hitmarker.head { color: #ff4040; }
+#damage-flash { position: absolute; inset: 0; opacity: 0; transition: opacity .4s;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(220, 0, 0, .55) 100%); }
+#damage-flash.show { opacity: 1; transition: none; }
+
+#top-bar { position: absolute; top: max(10px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+.pill { background: rgba(0, 0, 0, .45); padding: 4px 12px; border-radius: 14px; font-size: 14px; }
+#killfeed { position: absolute; top: 50px; right: max(12px, env(safe-area-inset-right)); font-size: 13px; text-align: right; }
+#killfeed div { background: rgba(0, 0, 0, .4); padding: 2px 8px; margin-bottom: 3px; border-radius: 4px; }
+
+#bottom-bar { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+  display: flex; align-items: flex-end; gap: 14px; }
+#health { position: relative; width: 260px; height: 18px; background: rgba(0, 0, 0, .5); border: 1px solid rgba(255, 255, 255, .4); border-radius: 3px; }
+#health-fill { height: 100%; width: 100%; background: #e8e8e8; transition: width .15s; }
+#health-fill.low { background: #e04040; }
+#health-text { position: absolute; inset: 0; text-align: center; font-size: 12px; line-height: 16px; color: #000; font-weight: bold; }
+#weapon-box { background: rgba(0, 0, 0, .45); padding: 4px 10px; border-radius: 6px; text-align: center; min-width: 140px; }
+#weapon-name { font-size: 13px; opacity: .85; }
+#ammo { font-size: 20px; }
+#slots span { display: inline-block; width: 20px; margin: 0 2px; font-size: 11px; border-radius: 3px; background: rgba(255, 255, 255, .15); }
+#slots span.active { background: #f0c040; color: #000; }
+#items { white-space: nowrap; background: rgba(0, 0, 0, .45); padding: 6px 10px; border-radius: 6px; font-size: 14px; }
+
+#prompt { position: absolute; left: 50%; top: 62%; transform: translateX(-50%); background: rgba(0, 0, 0, .6);
+  padding: 6px 14px; border-radius: 6px; font-size: 15px; }
+#progress { position: absolute; left: 50%; top: 70%; transform: translateX(-50%); width: 220px; height: 16px;
+  background: rgba(0, 0, 0, .55); border-radius: 8px; overflow: hidden; }
+#progress-fill { height: 100%; width: 0; background: #4caf50; }
+#progress-text { position: absolute; inset: 0; text-align: center; font-size: 11px; line-height: 16px; }
+#desktop-help { position: absolute; top: 8px; left: 10px; max-width: 360px; line-height: 1.6; font-size: 11px; opacity: .55; }
+
+/* ---------- Touch controls ---------- */
+#touch-ui { position: fixed; inset: 0; }
+#joy-zone { position: absolute; left: 0; bottom: 0; width: 40%; height: 70%; }
+#joy-base { position: absolute; width: 130px; height: 130px; border-radius: 50%; left: 60px; bottom: 50px;
+  background: rgba(255, 255, 255, .12); border: 2px solid rgba(255, 255, 255, .3); }
+#joy-knob { position: absolute; width: 56px; height: 56px; border-radius: 50%; left: 37px; top: 37px; background: rgba(255, 255, 255, .45); }
+#look-zone { position: absolute; right: 0; top: 0; width: 60%; height: 100%; }
+.tbtn { position: absolute; border-radius: 50%; border: 2px solid rgba(255, 255, 255, .35); background: rgba(0, 0, 0, .3);
+  color: #fff; font-size: 20px; width: 56px; height: 56px; touch-action: none; }
+.tbtn.on { background: rgba(240, 192, 64, .6); }
+#btn-fire { width: 84px; height: 84px; font-size: 32px; right: 40px; bottom: 120px; }
+#btn-fire-left { width: 60px; height: 60px; left: 30px; top: 35%; }
+#btn-aim { right: 150px; bottom: 200px; }
+#btn-jump { right: 40px; bottom: 30px; }
+#btn-reload { right: 110px; bottom: 30px; }
+#btn-switch { right: 180px; bottom: 30px; }
+#btn-pickup { right: 150px; bottom: 120px; }
+#btn-bandage { right: 30px; top: 90px; width: 46px; height: 46px; font-size: 16px; }
+#btn-medkit { right: 85px; top: 90px; width: 46px; height: 46px; font-size: 16px; }
+body.touch #desktop-help { display: none; }
+body.touch #bottom-bar { transform: translateX(-50%) scale(.8); transform-origin: bottom center; }
+
+/* ---------- Screens ---------- */
+.screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; background: rgba(15, 20, 28, .82); text-align: center; padding: 20px; }
+.screen h1 { font-size: 46px; letter-spacing: 2px; color: #f0c040; text-shadow: 0 3px 0 #000; }
+.screen .sub { font-size: 17px; opacity: .85; }
+.screen .hint { font-size: 13px; opacity: .6; max-width: 520px; line-height: 1.8; }
+button.big { font: inherit; font-size: 20px; padding: 12px 42px; border: none; border-radius: 8px; background: #f0c040; color: #000; cursor: pointer; }
+#rotate { display: none; z-index: 10; font-size: 20px; }
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
