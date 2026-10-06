@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "JAF X BAGRAM",
+	"Description": "Battle royale gameplay for JAF X BAGRAM: weapons, vehicles, safe zone, drop plane, bots and HUD.",
+	"Category": "Gameplay",
+	"CreatedBy": "JAF",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Modules": [
+		{
+			"Name": "JAFXGame",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{ "Name": "EnhancedInput", "Enabled": true },
+		{ "Name": "Niagara", "Enabled": true }
+	]
+}

@@ -1,0 +1,13 @@
+# Unreal generated folders
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+*.xcworkspace
+*.xcodeproj
+*.sln
+.vs/
+.idea/
+.DS_Store
