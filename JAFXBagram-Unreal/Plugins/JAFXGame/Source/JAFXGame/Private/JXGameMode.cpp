@@ -36,6 +36,8 @@ namespace
 	}
 }
 
+bool AJXGameMode::bSkipMenuOnce = false;
+
 AJXGameMode::AJXGameMode()
 {
 	DefaultPawnClass = AJXCharacter::StaticClass();
@@ -60,8 +62,21 @@ void AJXGameMode::StartPlay()
 			GetWorld()->SpawnActor<AJXBagramMap>(AJXBagramMap::StaticClass(), FTransform::Identity, P);
 		}
 	}
+	// Decide before Super::StartPlay so the player controller sees it in its BeginPlay.
+	bWaitingForMenu = bShowMainMenu && !bSkipMenuOnce;
+	bSkipMenuOnce = false;
 	Super::StartPlay();
-	GetWorldTimerManager().SetTimer(StartTimer, this, &AJXGameMode::BeginMatch, FMath::Max(StartDelay, 0.1f), false);
+	if (!bWaitingForMenu)
+	{
+		GetWorldTimerManager().SetTimer(StartTimer, this, &AJXGameMode::BeginMatch, FMath::Max(StartDelay, 0.1f), false);
+	}
+}
+
+void AJXGameMode::RequestBeginMatch()
+{
+	if (!bWaitingForMenu) return;
+	bWaitingForMenu = false;
+	GetWorldTimerManager().SetTimer(StartTimer, this, &AJXGameMode::BeginMatch, 0.5f, false);
 }
 
 AJXCharacter* AJXGameMode::SpawnBot(int32 Index, const FVector& Location)

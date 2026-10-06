@@ -251,7 +251,8 @@ void AJXCharacter::InputMove(const FInputActionValue& Value)
 void AJXCharacter::InputLook(const FInputActionValue& Value)
 {
 	const FVector2D V = Value.Get<FVector2D>();
-	const float Scale = bAiming ? 0.6f : 1.f;
+	float Scale = bAiming ? 0.6f : 1.f;
+	if (const AJXPlayerController* PC = GetJXController()) Scale *= PC->LookSensitivity;
 	AddControllerYawInput(V.X * Scale);
 	AddControllerPitchInput(V.Y * Scale);
 }

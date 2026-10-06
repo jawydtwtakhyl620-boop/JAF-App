@@ -124,7 +124,8 @@ void AJXVehicle::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent
 void AJXVehicle::InputLook(const FInputActionValue& Value)
 {
 	const FVector2D V = Value.Get<FVector2D>();
-	const float Scale = bZoom ? 0.4f : 1.f;
+	float Scale = bZoom ? 0.4f : 1.f;
+	if (const AJXPlayerController* PC = Cast<AJXPlayerController>(GetController())) Scale *= PC->LookSensitivity;
 	AddControllerYawInput(V.X * Scale);
 	AddControllerPitchInput(V.Y * Scale);
 }

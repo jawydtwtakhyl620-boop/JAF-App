@@ -19,6 +19,8 @@ public:
 
 	/** Seconds after the level loads before the plane takes off. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Match") float StartDelay = 3.f;
+	/** Show the main menu and wait for PLAY before the plane takes off. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Match") bool bShowMainMenu = true;
 	/** Builds the Bagram map automatically when the level does not contain one. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Match") bool bAutoSpawnBagramMap = true;
 	/** Seconds after the match ends before it restarts. */
@@ -31,6 +33,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Match") float GetMapHalfSize() const;
 
 	void OnCharacterDied(AJXCharacter* Victim, AController* Killer);
+
+	/** True while the main menu is up and the match has not started. */
+	bool IsWaitingForMenu() const { return bWaitingForMenu; }
+	/** Called by the PLAY button. */
+	void RequestBeginMatch();
+	/** Set before reloading the level to skip the main menu once (used by "Restart match"). */
+	static bool bSkipMenuOnce;
 
 protected:
 	virtual void StartPlay() override;
@@ -47,6 +56,7 @@ private:
 	UPROPERTY() TArray<TObjectPtr<AJXCharacter>> Participants;
 
 	bool bMatchStarted = false;
+	bool bWaitingForMenu = false;
 	bool bMatchOver = false;
 	FTimerHandle StartTimer;
 	FTimerHandle RestartTimer;

@@ -1,6 +1,15 @@
 #include "JXPlayerController.h"
+#include "JXCharacter.h"
+#include "JXGameMode.h"
 #include "JXSettings.h"
+#include "SJXMenu.h"
+#include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
+#include "Engine/GameViewportClient.h"
+#include "GameFramework/GameUserSettings.h"
+#include "Kismet/GameplayStatics.h"
+#include "Kismet/KismetSystemLibrary.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/Texture2D.h"
 #include "GameFramework/TouchInterface.h"
@@ -33,6 +42,134 @@ void AJXPlayerController::BeginPlay()
 	SetupTouchInterface();
 	SetInputMode(FInputModeGameOnly());
 	bShowMouseCursor = false;
+
+	if (IsLocalController())
+	{
+		GConfig->GetFloat(TEXT("JAFX"), TEXT("LookSensitivity"), LookSensitivity, GGameUserSettingsIni);
+		LookSensitivity = FMath::Clamp(LookSensitivity, 0.2f, 2.f);
+
+		// Show the main menu until the player presses PLAY.
+		const AJXGameMode* GM = GetWorld()->GetAuthGameMode<AJXGameMode>();
+		if (GM && GM->IsWaitingForMenu())
+		{
+			ShowMenu(false);
+		}
+	}
+}
+
+void AJXPlayerController::SetupInputComponent()
+{
+	Super::SetupInputComponent();
+	CreateInput();
+	if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(InputComponent))
+	{
+		EIC->BindAction(Actions.Pause, ETriggerEvent::Started, this, &AJXPlayerController::TogglePauseMenu);
+	}
+}
+
+// ------------------------------------------------------------------ menus
+
+void AJXPlayerController::ShowMenu(bool bPauseMenu)
+{
+	if (!IsLocalController()) return;
+	UGameViewportClient* Viewport = GetWorld() ? GetWorld()->GetGameViewport() : nullptr;
+	if (!Viewport) return;
+
+	if (MenuWidget.IsValid())
+	{
+		Viewport->RemoveViewportWidgetContent(MenuWidget.ToSharedRef());
+	}
+	MenuWidget = SNew(SJXMenu).Owner(this).bPauseMenu(bPauseMenu);
+	Viewport->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 100);
+
+	FInputModeUIOnly Mode;
+	Mode.SetWidgetToFocus(MenuWidget);
+	Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+	SetInputMode(Mode);
+	bShowMouseCursor = true;
+
+	if (bTouchControls) ActivateTouchInterface(nullptr);
+	if (APawn* P = GetPawn())
+	{
+		// Make sure nothing keeps firing while the menu is open.
+		if (AJXCharacter* C = Cast<AJXCharacter>(P)) C->StopFire();
+	}
+	if (bPauseMenu) SetPause(true);
+}
+
+void AJXPlayerController::CloseMenu()
+{
+	if (MenuWidget.IsValid())
+	{
+		if (UGameViewportClient* Viewport = GetWorld() ? GetWorld()->GetGameViewport() : nullptr)
+		{
+			Viewport->RemoveViewportWidgetContent(MenuWidget.ToSharedRef());
+		}
+		MenuWidget.Reset();
+	}
+	SetPause(false);
+	SetInputMode(FInputModeGameOnly());
+	bShowMouseCursor = false;
+	if (bTouchControls && TouchInterface) ActivateTouchInterface(TouchInterface);
+}
+
+void AJXPlayerController::TogglePauseMenu()
+{
+	const AJXGameMode* GM = GetWorld()->GetAuthGameMode<AJXGameMode>();
+	if (GM && GM->IsWaitingForMenu()) return; // main menu is already up
+	if (IsMenuOpen()) CloseMenu(); else ShowMenu(true);
+}
+
+void AJXPlayerController::StartMatchFromMenu()
+{
+	CloseMenu();
+	if (AJXGameMode* GM = GetWorld()->GetAuthGameMode<AJXGameMode>())
+	{
+		GM->RequestBeginMatch();
+	}
+}
+
+void AJXPlayerController::RestartMatchFromMenu()
+{
+	SetPause(false);
+	AJXGameMode::bSkipMenuOnce = true;
+	UGameplayStatics::OpenLevel(this, FName(*UGameplayStatics::GetCurrentLevelName(this, true)));
+}
+
+void AJXPlayerController::QuitFromMenu()
+{
+	UKismetSystemLibrary::QuitGame(this, this, EQuitPreference::Quit, false);
+}
+
+// ------------------------------------------------------------------ settings
+
+void AJXPlayerController::SetLookSensitivity(float Value)
+{
+	LookSensitivity = FMath::Clamp(Value, 0.2f, 2.f);
+	GConfig->SetFloat(TEXT("JAFX"), TEXT("LookSensitivity"), LookSensitivity, GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
+}
+
+int32 AJXPlayerController::GetGraphicsQuality() const
+{
+	const UGameUserSettings* GUS = GEngine ? GEngine->GetGameUserSettings() : nullptr;
+	return GUS ? GUS->GetOverallScalabilityLevel() : -1;
+}
+
+void AJXPlayerController::SetGraphicsQuality(int32 Level)
+{
+	if (UGameUserSettings* GUS = GEngine ? GEngine->GetGameUserSettings() : nullptr)
+	{
+		GUS->SetOverallScalabilityLevel(FMath::Clamp(Level, 0, 3));
+		GUS->ApplySettings(false);
+		GUS->SaveSettings();
+	}
+}
+
+void AJXPlayerController::ToggleFps()
+{
+	bFpsShown = !bFpsShown;
+	ConsoleCommand(TEXT("stat fps"));
 }
 
 void AJXPlayerController::CreateInput()
@@ -57,6 +194,8 @@ void AJXPlayerController::CreateInput()
 	Actions.Heal = MakeAction(this, TEXT("IA_Heal"), T::Boolean);
 	Actions.Throw = MakeAction(this, TEXT("IA_Throw"), T::Boolean);
 	Actions.CycleThrowable = MakeAction(this, TEXT("IA_CycleThrowable"), T::Boolean);
+	Actions.Pause = MakeAction(this, TEXT("IA_Pause"), T::Boolean);
+	Actions.Pause->bTriggerWhenPaused = true;
 
 	Mapping = NewObject<UInputMappingContext>(this, TEXT("IMC_JAFX"));
 
@@ -127,6 +266,9 @@ void AJXPlayerController::CreateInput()
 	Mapping->MapKey(Actions.Throw, EKeys::Gamepad_DPad_Up);
 	Mapping->MapKey(Actions.CycleThrowable, EKeys::T);
 	Mapping->MapKey(Actions.CycleThrowable, EKeys::Gamepad_DPad_Down);
+	// Escape is avoided on purpose: in the editor it stops Play-In-Editor.
+	Mapping->MapKey(Actions.Pause, EKeys::P);
+	Mapping->MapKey(Actions.Pause, EKeys::Gamepad_Special_Right);
 }
 
 void AJXPlayerController::AddMappingContext()
@@ -206,6 +348,7 @@ void AJXPlayerController::SetupTouchInterface()
 	AddButton(FVector2D(0.42f, 0.86f), 90.f, EKeys::Gamepad_LeftShoulder, TEXT("HEAL"));
 	AddButton(FVector2D(0.68f, 0.30f), 90.f, EKeys::Gamepad_DPad_Up, TEXT("GRENADE"));
 	AddButton(FVector2D(0.26f, 0.45f), 90.f, EKeys::Gamepad_LeftThumbstick, TEXT("SPRINT"));
+	AddButton(FVector2D(0.30f, 0.08f), 80.f, EKeys::Gamepad_Special_Right, TEXT("MENU"));
 
 	ActivateTouchInterface(TouchInterface);
 	bTouchControls = true;

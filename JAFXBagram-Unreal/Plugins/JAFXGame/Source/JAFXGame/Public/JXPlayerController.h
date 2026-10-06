@@ -8,6 +8,7 @@
 class UInputAction;
 class UInputMappingContext;
 class UTouchInterface;
+class SWidget;
 
 /** All input actions. Created in code, so no input assets are needed in the editor. */
 USTRUCT()
@@ -31,6 +32,7 @@ struct FJXInputActions
 	UPROPERTY() TObjectPtr<UInputAction> Heal;
 	UPROPERTY() TObjectPtr<UInputAction> Throw;
 	UPROPERTY() TObjectPtr<UInputAction> CycleThrowable;
+	UPROPERTY() TObjectPtr<UInputAction> Pause;
 };
 
 /** A touch button drawn by the HUD so players know what each circle does. */
@@ -60,6 +62,25 @@ public:
 	void AddKillFeed(const FString& Text);
 	void ShowCenterMessage(const FString& Title, const FString& Subtitle);
 
+	// ---- Menus (main menu, pause menu, settings) ----
+	void ShowMenu(bool bPauseMenu);
+	void CloseMenu();
+	bool IsMenuOpen() const { return MenuWidget.IsValid(); }
+	void TogglePauseMenu();
+	void StartMatchFromMenu();
+	void RestartMatchFromMenu();
+	void QuitFromMenu();
+
+	// ---- Settings (saved between sessions) ----
+	/** Camera look speed multiplier (0.2 - 2.0). */
+	float LookSensitivity = 1.f;
+	void SetLookSensitivity(float Value);
+	/** 0 = Low, 1 = Medium, 2 = High, 3 = Epic, -1 = custom. */
+	int32 GetGraphicsQuality() const;
+	void SetGraphicsQuality(int32 Level);
+	bool IsFpsShown() const { return bFpsShown; }
+	void ToggleFps();
+
 	// Read by the HUD.
 	float LastHitTime = -100.f;
 	bool bLastHitHead = false;
@@ -74,6 +95,7 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void PlayerTick(float DeltaTime) override;
+	virtual void SetupInputComponent() override;
 
 private:
 	void CreateInput();
@@ -85,4 +107,6 @@ private:
 	UPROPERTY() TObjectPtr<UTouchInterface> TouchInterface;
 	bool bInputCreated = false;
 	bool bMappingAdded = false;
+	bool bFpsShown = false;
+	TSharedPtr<SWidget> MenuWidget;
 };
