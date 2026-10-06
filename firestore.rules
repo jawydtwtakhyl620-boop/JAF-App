@@ -1,0 +1,84 @@
+rules_version = '2';
+
+// قوانین امنیتی JAF-X — قانون ولایت این‌جا روی سرور اجرا می‌شود و از اپ قابل دور زدن نیست.
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function me() { return get(/databases/$(db)/documents/users/$(uid())).data; }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    match /users/{userId} {
+      allow read: if signedIn();
+      allow create: if signedIn() && userId == uid()
+        && request.resource.data.verified == false
+        && request.resource.data.role in ['person', 'shop']
+        && !(request.resource.data.abroad == true && request.resource.data.role == 'shop');
+      // ولایت، نوع حساب و تأیید تذکره را کاربر نمی‌تواند تغییر دهد
+      allow update: if signedIn() && userId == uid()
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['province', 'role', 'verified', 'abroad', 'phone']);
+
+      // معلومات تذکره و آدرس فقط برای خود کاربر
+      match /private/{docId} {
+        allow read, write: if signedIn() && userId == uid();
+      }
+    }
+
+    match /listings/{id} {
+      allow read: if signedIn() && (resource.data.province == me().province || resource.data.sellerId == uid());
+      allow create: if signedIn()
+        && request.resource.data.sellerId == uid()
+        && request.resource.data.province == me().province
+        && request.resource.data.sellerRole == me().role
+        && me().abroad != true
+        && request.resource.data.price is number && request.resource.data.price > 0
+        && request.resource.data.status == 'active';
+      allow update: if signedIn() && resource.data.sellerId == uid()
+        && onlyChanges(['status']) && request.resource.data.status in ['active', 'sold'];
+      allow delete: if signedIn() && resource.data.sellerId == uid();
+    }
+
+    match /orders/{id} {
+      allow read: if signedIn() && (resource.data.buyerId == uid() || resource.data.sellerId == uid());
+      allow create: if signedIn()
+        && request.resource.data.buyerId == uid()
+        && request.resource.data.status == 'pending'
+        && request.resource.data.paid == false
+        && request.resource.data.payMethod == 'cod'
+        && request.resource.data.province == me().province
+        && get(/databases/$(db)/documents/listings/$(request.resource.data.listingId)).data.province == me().province
+        && get(/databases/$(db)/documents/listings/$(request.resource.data.listingId)).data.sellerRole == 'shop'
+        && get(/databases/$(db)/documents/listings/$(request.resource.data.listingId)).data.sellerId == request.resource.data.sellerId
+        && get(/databases/$(db)/documents/listings/$(request.resource.data.listingId)).data.price == request.resource.data.price;
+      // «پرداخت شد» (paid) را فقط سرور درگاه پرداخت ثبت می‌کند؛ دکاندار فقط ارسال/تحویل را ثبت می‌کند
+      allow update: if signedIn() && resource.data.sellerId == uid()
+        && onlyChanges(['status']) && request.resource.data.status in ['shipped', 'delivered'];
+    }
+
+    match /chats/{chatId} {
+      allow read: if signedIn() && (resource == null || uid() in resource.data.members);
+      allow create: if signedIn()
+        && uid() in request.resource.data.members
+        && request.resource.data.members.size() == 2
+        && request.resource.data.province == me().province;
+      allow update: if signedIn() && uid() in resource.data.members && onlyChanges(['lastMessage', 'updatedAt']);
+
+      match /messages/{msgId} {
+        function chat() { return get(/databases/$(db)/documents/chats/$(chatId)).data; }
+        allow read: if signedIn() && uid() in chat().members;
+        allow create: if signedIn() && uid() in chat().members
+          && request.resource.data.senderId == uid()
+          && request.resource.data.text is string && request.resource.data.text.size() <= 1000;
+      }
+    }
+
+    // درخواست برداشت؛ تأیید و پرداخت آن کار نمایندگی (پنل مدیریت) است
+    match /withdrawals/{id} {
+      allow read: if signedIn() && resource.data.uid == uid();
+      allow create: if signedIn() && request.resource.data.uid == uid()
+        && me().role == 'shop'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.amount is number && request.resource.data.amount > 0;
+    }
+  }
+}
